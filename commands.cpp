@@ -1,11 +1,16 @@
 #include "commands.h"
-#include <stack>
-#include <iostream>
+#include "stack"
 
 uint32_t CURRENT_DIRECTORY_CLUSTER = ROOT_DIRECTORY_CLUSTER;
-std::stack<uint32_t> current_cluster_stack;
 
+std::stack<uint32_t> current_cluster_stack;
 std::string DIRECTORY_PATH = "root\\";
+
+
+
+void initializeStack() {
+    current_cluster_stack.push(ROOT_DIRECTORY_CLUSTER);
+}
 
 DirEntry* get_directory(uint8_t* disk, int directory_cluster) {
     return (DirEntry*)(disk + directory_cluster * CLUSTER_SIZE);
@@ -17,8 +22,12 @@ uint32_t* get_fat(uint8_t* disk) {
 }
 
 uint32_t get_parent_directory() {
+    if (current_cluster_stack.size() <= 1) {
+		std::cout << "Already at root directory, no parent directory exists.\n";
+		return ROOT_DIRECTORY_CLUSTER;
+    }
     current_cluster_stack.pop();
-	return current_cluster_stack.top();
+    return current_cluster_stack.top();
 }
 
 
@@ -154,10 +163,11 @@ void show_current_directory(uint8_t* disk, uint32_t directory_cluster) {
 void list_tree(uint8_t* disk, uint32_t directory_cluster, uint32_t number_tabs) {
     DirEntry* directory = get_directory(disk, directory_cluster);
     std::string padding = "";
-    for (uint32_t i = 0; i < number_tabs; i++) {
+
+	for (uint32_t i = 0; i < number_tabs; i++) {//Pentru UI, adaugam un padding in functie de adancimea in care ne aflam in arborele de directoare 
         padding += "\t";
     }
-    if (directory_cluster == CURRENT_DIRECTORY_CLUSTER) {
+    if (directory_cluster == CURRENT_DIRECTORY_CLUSTER) { //Adaugam un * pentru a marca directorul curent
         padding += "*";
     }
 
@@ -168,10 +178,10 @@ void list_tree(uint8_t* disk, uint32_t directory_cluster, uint32_t number_tabs) 
         if (directory[i].dir_name[0] == 0x00)
             continue;
 
-        if (directory[i].dir_attr == 0x00) {
-            std::cout << padding << "<FILE>" << directory[i].dir_name << "</FILE> "<<directory[i].dir_firstcluster<< "\n";
+        if (directory[i].dir_attr == 0x00) { 
+            std::cout << padding << "<FILE>" << directory[i].dir_name << "</FILE> " << directory[i].dir_firstcluster << "\n";
         }
-        else {
+        else { 
             std::cout << padding << "<DIR>" << directory[i].dir_name << "</DIR> " << directory[i].dir_firstcluster << "\n";
             list_tree(disk, directory[i].dir_firstcluster, number_tabs + 1);
         }
@@ -185,8 +195,12 @@ void change_directory(uint8_t* disk, std::string& to_directory_name) {
     DirEntry* current_directory = get_directory(disk, CURRENT_DIRECTORY_CLUSTER);
 
     if (to_directory_name == "..") {
-		CURRENT_DIRECTORY_CLUSTER = get_parent_directory();
-		DIRECTORY_PATH = DIRECTORY_PATH.substr(0, DIRECTORY_PATH.find_last_of('\\', DIRECTORY_PATH.length() - 2) + 1);
+        if (CURRENT_DIRECTORY_CLUSTER == ROOT_DIRECTORY_CLUSTER) {
+            return;
+        }
+        CURRENT_DIRECTORY_CLUSTER = get_parent_directory();
+        DIRECTORY_PATH = DIRECTORY_PATH.substr(0, DIRECTORY_PATH.find_last_of('\\', DIRECTORY_PATH.length() - 2) + 1);
+        
         return;
     }
 
@@ -196,10 +210,10 @@ void change_directory(uint8_t* disk, std::string& to_directory_name) {
     for (uint32_t i = 0; i < CLUSTER_SIZE / sizeof(DirEntry); i++) {
 
         if (std::memcmp(current_directory[i].dir_name, directory_name, 11) == 0) {
-             if (current_directory[i].dir_firstcluster != 0) {
-                 current_cluster_stack.push(current_directory[i].dir_firstcluster);
+            if (current_directory[i].dir_firstcluster != 0) {
+                current_cluster_stack.push(current_directory[i].dir_firstcluster);
                 CURRENT_DIRECTORY_CLUSTER = current_directory[i].dir_firstcluster;
-				DIRECTORY_PATH += to_directory_name + '\\';
+                DIRECTORY_PATH += to_directory_name + '\\';
 
             }
             return;
@@ -261,7 +275,7 @@ void delete_directory(uint8_t* disk, uint32_t current_cluster) {
 
 
 
- 
+
 
 
 void delete_file(uint8_t* disk, uint32_t directory_cluster, std::string& nume) {
@@ -301,16 +315,16 @@ void delete_file(uint8_t* disk, uint32_t directory_cluster, std::string& nume) {
             if (directory[i].dir_name[0] == 0x00)
                 continue;
 
-         //   std::string rootName = directory[i].dir_name;
+            //   std::string rootName = directory[i].dir_name;
             std::cout << "String rootName: " << directory[i].dir_name << '\n';
-        //    std::string fileName;
-         //   fileName.assign(file_name, 11);
+            //    std::string fileName;
+             //   fileName.assign(file_name, 11);
             std::cout << "String fileName: " << file_name << '\n';
 
             std::cout << "Memcmp: " << std::memcmp(directory[i].dir_name, file_name, 11) << '\n';
 
 
-            if (std::memcmp(directory[i].dir_name, file_name,11)==0) {
+            if (std::memcmp(directory[i].dir_name, file_name, 11) == 0) {
                 delete_directory(disk, directory[i].dir_firstcluster);
                 std::cout << "Directory " << directory[i].dir_name << " has been deleted!\n";
 
@@ -420,6 +434,6 @@ void start_command_interface(uint8_t* disk) {
         }
 
 
-        std::cout << DIRECTORY_PATH<<": ";
+        std::cout << DIRECTORY_PATH << ": ";
     }
 }
