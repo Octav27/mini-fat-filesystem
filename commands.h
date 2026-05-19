@@ -2,9 +2,8 @@
 #ifndef COMMANDS_H
 
 #define COMMANDS_H
- 
 #include <iostream>
- 
+
 
 constexpr size_t CLUSTER_SIZE = 1024;
 constexpr size_t CLUSTER_COUNT = 1024;
@@ -31,8 +30,9 @@ DirEntry* get_directory(uint8_t* disk, int directory_cluster);
 
 uint32_t* get_fat(uint8_t* disk);
 
-void create_file(uint8_t* disk, std::string& name);
+void initializeStack();
 
+void create_file(uint8_t* disk, std::string& name);
 
 void list_files(uint8_t* disk);
 
